@@ -1,0 +1,521 @@
+[
+  {
+    "id": "ALERT-001",
+    "source": "o365",
+    "severity": "high",
+    "category": "suspicious_login",
+    "timestamp": "2025-01-01T12:00:00Z",
+    "username": "alice@example.com",
+    "ip": "203.0.113.10",
+    "location": "Russia",
+    "description": "Multiple failed login attempts followed by a success from an unusual country."
+  },
+  {
+    "id": "ALERT-002",
+    "source": "firewall",
+    "severity": "medium",
+    "category": "port_scan",
+    "timestamp": "2025-01-01T12:05:00Z",
+    "src_ip": "198.51.100.23",
+    "dst_ip": "10.0.10.15",
+    "description": "Sequential TCP connection attempts to 20+ ports over 60 seconds."
+  },
+  {
+    "id": "ALERT-003",
+    "source": "edr",
+    "severity": "low",
+    "category": "suspicious_process",
+    "timestamp": "2025-01-01T12:10:00Z",
+    "hostname": "WS-ENG-07",
+    "process": "powershell.exe",
+    "command_line": "powershell -nop -w hidden -enc <truncated>",
+    "description": "Encoded PowerShell launched by a user session."
+  },
+  {
+    "id": "ALERT-SIEM-001",
+    "source": "siem",
+    "severity": "high",
+    "category": "impossible_travel",
+    "timestamp": "2025-02-01T08:00:00Z",
+    "rule_name": "Impossible Travel Detection",
+    "event_count": 14,
+    "correlated_sources": [
+      "o365",
+      "vpn"
+    ],
+    "entities": {
+      "username": "maria.finance@example.com",
+      "src_ip": "203.0.113.45",
+      "dst_ip": "10.14.22.5",
+      "hostname": "WS-FIN-04"
+    },
+    "description": "Logins for maria.finance@example.com originated from Toronto and Singapore within seven minutes, exceeding travel tolerances. Session cookies indicate the same device fingerprint despite the impossible transit time."
+  },
+  {
+    "id": "ALERT-SIEM-002",
+    "source": "siem",
+    "severity": "medium",
+    "category": "multiple_failed_logins",
+    "timestamp": "2025-02-01T08:05:00Z",
+    "rule_name": "Account Lockout Threshold",
+    "event_count": 26,
+    "correlated_sources": [
+      "vpn"
+    ],
+    "entities": {
+      "username": "it.ops@example.com",
+      "src_ip": "198.51.100.51",
+      "dst_ip": "10.10.0.20",
+      "hostname": "VPN-GW-02"
+    },
+    "description": "The it.ops@example.com account recorded twenty sequential VPN failures followed by a temporary lockout. Attempts alternated across two usernames suggesting scripted credential stuffing."
+  },
+  {
+    "id": "ALERT-SIEM-003",
+    "source": "siem",
+    "severity": "high",
+    "category": "suspicious_admin_change",
+    "timestamp": "2025-02-01T08:10:00Z",
+    "rule_name": "Privileged Role Assignment",
+    "event_count": 9,
+    "correlated_sources": [
+      "o365",
+      "iam"
+    ],
+    "entities": {
+      "username": "service.account@example.com",
+      "src_ip": "192.0.2.33",
+      "dst_ip": "10.1.5.12",
+      "hostname": "IDP-CORE-01"
+    },
+    "description": "A dormant service.account@example.com identity was granted Global Administrator permissions outside the change window. The elevation originated from a workstation that normally never touches IAM tooling."
+  },
+  {
+    "id": "ALERT-SIEM-004",
+    "source": "siem",
+    "severity": "medium",
+    "category": "privilege_escalation",
+    "timestamp": "2025-02-01T08:12:00Z",
+    "rule_name": "Endpoint Token Theft",
+    "event_count": 11,
+    "correlated_sources": [
+      "edr",
+      "siem"
+    ],
+    "entities": {
+      "username": "sara.hr@example.com",
+      "src_ip": "203.0.113.87",
+      "dst_ip": "10.22.18.44",
+      "hostname": "WS-HR-03"
+    },
+    "description": "Token impersonation artifacts on WS-HR-03 coincided with a rapid switch from standard to elevated PowerShell consoles. EDR telemetry indicates Mimikatz strings in memory."
+  },
+  {
+    "id": "ALERT-SIEM-005",
+    "source": "siem",
+    "severity": "high",
+    "category": "bruteforce_vpn",
+    "timestamp": "2025-02-01T08:15:00Z",
+    "rule_name": "VPN Bruteforce Spike",
+    "event_count": 74,
+    "correlated_sources": [
+      "vpn",
+      "firewall"
+    ],
+    "entities": {
+      "username": "unknown",
+      "src_ip": "198.51.100.200",
+      "dst_ip": "172.16.40.10",
+      "hostname": "VPN-GW-01"
+    },
+    "description": "Firewall and VPN telemetry noted 70+ credential attempts across multiple disabled usernames from 198.51.100.200. The burst continued even after geo-block controls were applied."
+  },
+  {
+    "id": "ALERT-SIEM-006",
+    "source": "siem",
+    "severity": "low",
+    "category": "multiple_failed_logins",
+    "timestamp": "2025-02-01T08:17:00Z",
+    "rule_name": "Service Account Login Hygiene",
+    "event_count": 8,
+    "correlated_sources": [
+      "o365"
+    ],
+    "entities": {
+      "username": "printer.queue@example.com",
+      "src_ip": "192.0.2.57",
+      "dst_ip": "10.5.30.9",
+      "hostname": "PRINT-SRV-01"
+    },
+    "description": "A misconfigured print connector attempted to renew tokens with stale credentials. Alert retained for completeness but impact is low if account remains scoped."
+  },
+  {
+    "id": "ALERT-SIEM-007",
+    "source": "siem",
+    "severity": "medium",
+    "category": "impossible_travel",
+    "timestamp": "2025-02-01T08:20:00Z",
+    "rule_name": "Geo Velocity Anomaly",
+    "event_count": 12,
+    "correlated_sources": [
+      "o365",
+      "casb"
+    ],
+    "entities": {
+      "username": "lucas.sales@example.com",
+      "src_ip": "192.0.2.110",
+      "dst_ip": "10.33.7.21",
+      "hostname": "WS-SALES-02"
+    },
+    "description": "Sales account sessions toggled between Chicago and Madrid within ten minutes while device posture switched from managed to unmanaged. CASB marked the downstream downloads as suspicious."
+  },
+  {
+    "id": "ALERT-SIEM-008",
+    "source": "siem",
+    "severity": "medium",
+    "category": "suspicious_admin_change",
+    "timestamp": "2025-02-01T08:23:00Z",
+    "rule_name": "GPO Modification Monitor",
+    "event_count": 6,
+    "correlated_sources": [
+      "ad",
+      "siem"
+    ],
+    "entities": {
+      "username": "temp.contractor@example.com",
+      "src_ip": "203.0.113.19",
+      "dst_ip": "10.11.50.11",
+      "hostname": "DC-CORE-02"
+    },
+    "description": "A contractor account edited workstation GPOs to disable screen locking immediately after being added to Domain Admins. Change ticket reference was missing from ServiceNow."
+  },
+  {
+    "id": "ALERT-SIEM-009",
+    "source": "siem",
+    "severity": "low",
+    "category": "privilege_escalation",
+    "timestamp": "2025-02-01T08:25:00Z",
+    "rule_name": "Unexpected Sudo Use",
+    "event_count": 5,
+    "correlated_sources": [
+      "linux_audit",
+      "siem"
+    ],
+    "entities": {
+      "username": "dev.build@example.com",
+      "src_ip": "198.51.100.90",
+      "dst_ip": "10.60.4.15",
+      "hostname": "CI-LNX-02"
+    },
+    "description": "The dev.build@example.com role executed sudo on CI-LNX-02 during off-hours to install packet capture tools. No change request was associated but the host is isolated to staging."
+  },
+  {
+    "id": "ALERT-SIEM-010",
+    "source": "siem",
+    "severity": "high",
+    "category": "privilege_escalation",
+    "timestamp": "2025-02-01T08:30:00Z",
+    "rule_name": "Kerberoasting Pattern",
+    "event_count": 41,
+    "correlated_sources": [
+      "ad",
+      "edr",
+      "siem"
+    ],
+    "entities": {
+      "username": "support.queue@example.com",
+      "src_ip": "203.0.113.70",
+      "dst_ip": "10.12.44.8",
+      "hostname": "WS-SUPPORT-05"
+    },
+    "description": "Sequential service ticket requests followed by RC4 encryption brute forcing indicate a Kerberoasting attempt tied to support.queue@example.com. EDR flagged hash dumping utilities running under that session."
+  },
+  {
+    "id": "ALERT-O365-001",
+    "source": "o365",
+    "severity": "high",
+    "category": "impossible_travel",
+    "timestamp": "2025-01-02T07:05:00Z",
+    "username": "david.ops@example.com",
+    "ip": "198.51.100.11",
+    "location": "Brazil",
+    "description": "User logged in from Sao Paulo five minutes after a Virginia session ended, breaching impossible travel thresholds."
+  },
+  {
+    "id": "ALERT-O365-002",
+    "source": "o365",
+    "severity": "medium",
+    "category": "multiple_failed_logins",
+    "timestamp": "2025-01-02T07:20:00Z",
+    "username": "nina.design@example.com",
+    "ip": "203.0.113.80",
+    "location": "Unknown",
+    "description": "Fifteen failed logins targeting nina.design@example.com were recorded before the account auto-locked."
+  },
+  {
+    "id": "ALERT-O365-003",
+    "source": "o365",
+    "severity": "medium",
+    "category": "suspicious_mailbox_rule",
+    "timestamp": "2025-01-02T07:45:00Z",
+    "username": "finance.alerts@example.com",
+    "ip": "192.0.2.140",
+    "location": "Ireland",
+    "description": "Mailbox rule created to forward all subjects containing \"wire\" to an external address."
+  },
+  {
+    "id": "ALERT-O365-004",
+    "source": "o365",
+    "severity": "high",
+    "category": "suspicious_download",
+    "timestamp": "2025-01-02T08:00:00Z",
+    "username": "lucy.legal@example.com",
+    "ip": "203.0.113.32",
+    "location": "United Kingdom",
+    "description": "Large SharePoint download spike for legal case folders outside business hours from unmanaged device."
+  },
+  {
+    "id": "ALERT-O365-005",
+    "source": "o365",
+    "severity": "low",
+    "category": "risky_consent",
+    "timestamp": "2025-01-02T08:15:00Z",
+    "username": "demo.user@example.com",
+    "ip": "198.51.100.76",
+    "location": "United States",
+    "description": "User granted legacy mail.read permissions to an unverified Azure app flagged as risky."
+  },
+  {
+    "id": "ALERT-O365-006",
+    "source": "o365",
+    "severity": "medium",
+    "category": "impossible_travel",
+    "timestamp": "2025-01-02T08:30:00Z",
+    "username": "rahul.pm@example.com",
+    "ip": "192.0.2.15",
+    "location": "Singapore",
+    "description": "Back-to-back interactive logins from Frankfurt and Singapore for rahul.pm@example.com with identical device IDs."
+  },
+  {
+    "id": "ALERT-O365-007",
+    "source": "o365",
+    "severity": "low",
+    "category": "suspicious_login",
+    "timestamp": "2025-01-02T08:45:00Z",
+    "username": "intern.analytics@example.com",
+    "ip": "203.0.113.66",
+    "location": "Poland",
+    "description": "Single-factor login allowed from outside approved geos for intern account; flagged for review."
+  },
+  {
+    "id": "ALERT-O365-008",
+    "source": "o365",
+    "severity": "high",
+    "category": "privileged_login",
+    "timestamp": "2025-01-02T09:00:00Z",
+    "username": "admin.core@example.com",
+    "ip": "198.51.100.5",
+    "location": "Turkey",
+    "description": "Privileged admin login from a TOR exit node attempted configuration changes to conditional access policies."
+  },
+  {
+    "id": "ALERT-O365-009",
+    "source": "o365",
+    "severity": "medium",
+    "category": "suspicious_mailbox_rule",
+    "timestamp": "2025-01-02T09:20:00Z",
+    "username": "support.dispatch@example.com",
+    "ip": "192.0.2.210",
+    "location": "Spain",
+    "description": "Mailbox rule deletes all messages containing \"invoice\" immediately upon arrival."
+  },
+  {
+    "id": "ALERT-FW-001",
+    "source": "firewall",
+    "severity": "medium",
+    "category": "port_scan",
+    "timestamp": "2025-01-02T06:50:00Z",
+    "src_ip": "198.51.100.150",
+    "dst_ip": "10.0.5.20",
+    "description": "Sequential TCP scans over 200 ports targeting application subnet from a single external IP."
+  },
+  {
+    "id": "ALERT-FW-002",
+    "source": "firewall",
+    "severity": "high",
+    "category": "outbound_beacon",
+    "timestamp": "2025-01-02T07:05:00Z",
+    "src_ip": "10.0.12.44",
+    "dst_ip": "203.0.113.200",
+    "description": "Workstation initiated periodic HTTPS connections to known C2 infrastructure every 60 seconds."
+  },
+  {
+    "id": "ALERT-FW-003",
+    "source": "firewall",
+    "severity": "medium",
+    "category": "dns_tunnel",
+    "timestamp": "2025-01-02T07:15:00Z",
+    "src_ip": "10.0.15.9",
+    "dst_ip": "192.0.2.250",
+    "description": "High-entropy DNS TXT queries detected, consistent with tunneling behavior."
+  },
+  {
+    "id": "ALERT-FW-004",
+    "source": "firewall",
+    "severity": "low",
+    "category": "policy_violation",
+    "timestamp": "2025-01-02T07:25:00Z",
+    "src_ip": "10.0.25.4",
+    "dst_ip": "198.51.100.34",
+    "description": "Non-approved file transfer to external FTP host blocked by egress policy."
+  },
+  {
+    "id": "ALERT-FW-005",
+    "source": "firewall",
+    "severity": "high",
+    "category": "lateral_movement",
+    "timestamp": "2025-01-02T07:40:00Z",
+    "src_ip": "10.0.40.12",
+    "dst_ip": "10.0.41.18",
+    "description": "SMB brute force attempts across finance servers originating from engineering VLAN."
+  },
+  {
+    "id": "ALERT-FW-006",
+    "source": "firewall",
+    "severity": "medium",
+    "category": "bruteforce_vpn",
+    "timestamp": "2025-01-02T07:55:00Z",
+    "src_ip": "203.0.113.89",
+    "dst_ip": "10.0.10.15",
+    "description": "VPN gateway observed credential attempts cycling through alphabetic usernames."
+  },
+  {
+    "id": "ALERT-FW-007",
+    "source": "firewall",
+    "severity": "low",
+    "category": "port_scan",
+    "timestamp": "2025-01-02T08:10:00Z",
+    "src_ip": "198.51.100.17",
+    "dst_ip": "10.0.60.5",
+    "description": "Low-intensity UDP scan across IoT subnet flagged for tracking."
+  },
+  {
+    "id": "ALERT-FW-008",
+    "source": "firewall",
+    "severity": "medium",
+    "category": "outbound_beacon",
+    "timestamp": "2025-01-02T08:25:00Z",
+    "src_ip": "10.0.70.21",
+    "dst_ip": "203.0.113.170",
+    "description": "Server initiated beaconing to anonymized VPS provider using uncommon ports."
+  },
+  {
+    "id": "ALERT-FW-009",
+    "source": "firewall",
+    "severity": "high",
+    "category": "data_exfil",
+    "timestamp": "2025-01-02T08:40:00Z",
+    "src_ip": "10.0.80.14",
+    "dst_ip": "198.51.100.210",
+    "description": "Large outbound upload of archive files over HTTPS from HR subnet to unapproved host."
+  },
+  {
+    "id": "ALERT-EDR-001",
+    "source": "edr",
+    "severity": "high",
+    "category": "credential_dumping",
+    "timestamp": "2025-01-02T06:45:00Z",
+    "hostname": "WS-ENG-11",
+    "process": "lsass.exe",
+    "command_line": "C:/Windows/System32/lsass.exe",
+    "description": "Memory scanner detected unauthorized handle access to LSASS consistent with Mimikatz tooling."
+  },
+  {
+    "id": "ALERT-EDR-002",
+    "source": "edr",
+    "severity": "medium",
+    "category": "suspicious_process",
+    "timestamp": "2025-01-02T07:00:00Z",
+    "hostname": "WS-MKT-02",
+    "process": "powershell.exe",
+    "command_line": "powershell -nop -w hidden -enc VGhpcyBpcyBhIHRlc3Q=",
+    "description": "Encoded PowerShell executed via Office macro without approved script signature."
+  },
+  {
+    "id": "ALERT-EDR-003",
+    "source": "edr",
+    "severity": "medium",
+    "category": "persistence_registry",
+    "timestamp": "2025-01-02T07:10:00Z",
+    "hostname": "WS-FIN-09",
+    "process": "reg.exe",
+    "command_line": "reg add HKCU/Software/Microsoft/Windows/CurrentVersion/Run /v updater",
+    "description": "Registry Run key modified to start unsigned binary on user logon."
+  },
+  {
+    "id": "ALERT-EDR-004",
+    "source": "edr",
+    "severity": "low",
+    "category": "suspicious_process",
+    "timestamp": "2025-01-02T07:25:00Z",
+    "hostname": "WS-OPS-04",
+    "process": "cmd.exe",
+    "command_line": "cmd /c whoami && net group \"Domain Admins\"",
+    "description": "Command prompt enumerated privileged groups shortly after VPN login."
+  },
+  {
+    "id": "ALERT-EDR-005",
+    "source": "edr",
+    "severity": "high",
+    "category": "ransomware_indicator",
+    "timestamp": "2025-01-02T07:40:00Z",
+    "hostname": "WS-RND-01",
+    "process": "unknown.exe",
+    "command_line": "unknown.exe --encrypt C:/",
+    "description": "Process spawned numerous file rename and delete operations matching ransomware heuristics."
+  },
+  {
+    "id": "ALERT-EDR-006",
+    "source": "edr",
+    "severity": "medium",
+    "category": "lateral_tool",
+    "timestamp": "2025-01-02T07:55:00Z",
+    "hostname": "WS-DEV-07",
+    "process": "wmic.exe",
+    "command_line": "wmic /node:10.0.41.10 process call create",
+    "description": "WMIC used for remote execution toward finance subnet host."
+  },
+  {
+    "id": "ALERT-EDR-007",
+    "source": "edr",
+    "severity": "medium",
+    "category": "unsigned_driver",
+    "timestamp": "2025-01-02T08:10:00Z",
+    "hostname": "WS-LAB-03",
+    "process": "sc.exe",
+    "command_line": "sc create diagdrv binPath= C:/temp/diagdrv.sys type= kernel",
+    "description": "Unsigned kernel driver installed without ticket reference."
+  },
+  {
+    "id": "ALERT-EDR-008",
+    "source": "edr",
+    "severity": "low",
+    "category": "persistence_registry",
+    "timestamp": "2025-01-02T08:25:00Z",
+    "hostname": "WS-SALES-05",
+    "process": "schtasks.exe",
+    "command_line": "schtasks /create /sc minute /mo 30 /tn UpdateHelper /tr C:/temp/helper.bat",
+    "description": "Scheduled task created to run unsigned helper script repeatedly."
+  },
+  {
+    "id": "ALERT-EDR-009",
+    "source": "edr",
+    "severity": "medium",
+    "category": "credential_dumping",
+    "timestamp": "2025-01-02T08:40:00Z",
+    "hostname": "WS-SUP-02",
+    "process": "procdump.exe",
+    "command_line": "procdump -accepteula -ma winlogon.exe C:/temp/winlogon_dump.dmp",
+    "description": "Procdump attempted to dump winlogon.exe memory to disk, indicating credential harvesting behavior."
+  }
+]
