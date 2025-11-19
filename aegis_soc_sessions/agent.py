@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from google.adk.agents import LlmAgent
+from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
 from google.adk.models.google_llm import Gemini
 from google.adk.tools.agent_tool import AgentTool
 from google.adk.tools.function_tool import FunctionTool
@@ -19,6 +21,8 @@ retry_config = types.HttpRetryOptions(
     initial_delay=1,
     http_status_codes=[429, 500, 503, 504],
 )
+
+ALLOWED_ACTIONS = ["ESCALATE", "MONITOR", "CLOSE", "NEEDS_MORE_INFO"]
 
 
 def _load_alerts_file() -> List[Dict[str, Any]]:
@@ -114,6 +118,21 @@ Keep the answer short (1–2 paragraphs).
 )
 
 
+# Remote Guardrail agent (A2A) -----------------------------------------------
+
+
+GUARDRAIL_AGENT_CARD_URL = os.getenv(
+    "GUARDRAIL_AGENT_CARD_URL",
+    "http://localhost:8001/.well-known/agent-card.json",
+)
+
+guardrail_remote_agent = RemoteA2aAgent(
+    name="guardrail_agent",
+    description="Remote Guardrail Agent that validates triage recommendations via A2A.",
+    agent_card=GUARDRAIL_AGENT_CARD_URL,
+)
+
+
 # --- Root triage agent -------------------------------------------------------
 
 
@@ -128,6 +147,7 @@ You have three main capabilities:
 - 'load_synthetic_alerts' tool to fetch synthetic security alerts
 - 'log_parser_agent' to convert raw alerts into human-readable explanations
 - 'correlation_agent' to connect related alerts into a bigger picture
+- 'guardrail_agent' (remote A2A) to validate every final recommendation
 
 ALWAYS follow this flow:
 
@@ -142,13 +162,28 @@ ALWAYS follow this flow:
    call 'correlation_agent' to get a higher-level view.
    - Its output will be stored under 'correlation_summary'.
 
-4) Produce a final triage summary that includes:
+4) Produce a triage narrative that includes:
    - What happened (short narrative)
    - Likely risk level: Low, Medium, or High
-   - Recommended action: Escalate, Monitor, or Close
+   - Recommended action (must be one of ESCALATE, MONITOR, CLOSE, NEEDS_MORE_INFO)
    - Brief justification for your recommendation
 
-5) Remember that your final answer is stored in the 'triage_summary'
+5) BEFORE returning any final recommendation:
+   - Summarize your proposed action and evidence into JSON:
+       {
+         "proposed_action": "...",
+         "evidence_summary": "...",
+         "triage_summary": "..."
+       }
+   - Call 'guardrail_agent' with this payload.
+   - The guardrail responds with JSON:
+       * allow (boolean)
+       * normalized_action (one of ALLOWED_ACTIONS)
+       * rationale (short explanation)
+   - If allow is false, clearly explain why and default to a safe action
+     (usually MONITOR or NEEDS_MORE_INFO) while surfacing the guardrail rationale.
+
+6) Remember that your final answer is stored in the 'triage_summary'
    state key so the analyst can ask follow-up questions in the same
    session without redoing all the work.
 
@@ -162,7 +197,9 @@ GUARDRAILS:
         load_synthetic_alerts_tool,
         AgentTool(agent=log_parser_agent),
         AgentTool(agent=correlation_agent),
+        AgentTool(agent=guardrail_remote_agent),
     ],
+    sub_agents=[log_parser_agent, correlation_agent, guardrail_remote_agent],
     # Store the full triage answer in session state.
     output_key="triage_summary",
 )

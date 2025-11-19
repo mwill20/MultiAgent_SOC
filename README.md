@@ -18,3 +18,9 @@ a secure multi-agent SOC triage assistant built with Google ADK and Gemini.
 
 - `aegis_soc_sessions/` introduces a session-aware app that chains tool + sub-agents through ADK `LlmAgent` output keys so parsed alerts, correlations, and final triage summaries persist across incident turns via `InMemorySessionService`.
 - `tests/test_phase3_sessions.py` drives two turns in the same session to ensure state accumulation and guardrail-friendly follow-up behavior.
+
+## Phase 4 - Guardrail Agent (A2A)
+
+- `guardrail_agent/` hosts a dedicated Guardrail Agent exposed over A2A (`to_a2a`), enforcing the action enum `ESCALATE | MONITOR | CLOSE | NEEDS_MORE_INFO`.
+- `aegis_soc_sessions/agent.py` now loads a `RemoteA2aAgent` sub-agent so the root triage workflow must call the Guardrail before finalizing recommendations.
+- `tests/test_phase4_guardrail_a2a.py` verifies the remote guardrail wiring without needing the external service live.
