@@ -1,0 +1,8 @@
+google-adk>=1.18.0
+a2a-sdk>=0.3.14
+pytest>=9.0.1
+pytest-asyncio
+uvicorn>=0.38.0
+httpx
+pydantic
+python-dotenv

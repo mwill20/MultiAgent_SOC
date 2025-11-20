@@ -110,7 +110,7 @@ aegis-soc/
 │   └── MultiAgentSOC_Logo.png  # AegisSOC logo
 ├── run_tests.py                # Helper to run pytest with captured output
 ├── demo_script.md              # 3-minute demo video script
-├── kaggle_writeup.md           # Kaggle submission writeup
+├── docs/Kaggle_Writeup.md      # Kaggle submission writeup
 ├── README.md
 ├── TESTING.md
 ├── SECURITY.md
