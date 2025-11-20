@@ -13,6 +13,8 @@ from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.tool_context import ToolContext
 from google.genai import types
 
+from .observability import EVENT_AGENT_OUTPUT, EVENT_TOOL_CALL, record_event
+
 
 # Basic retry config for Gemini
 retry_config = types.HttpRetryOptions(
@@ -39,18 +41,9 @@ def load_synthetic_alerts(
     """
     Load synthetic SOC alerts from local JSON for analysis.
 
-    This tool is *read-only* and only works with synthetic data shipped
-    with the AegisSOC repo.
-
-    Args:
-        alert_id: Optional ID to filter on. If provided, only alerts whose
-                  'id' field matches (string compare) are returned.
-        tool_context:  ToolContext from ADK. When present, this function will
-                  store the loaded alerts into session state under the key
-                  'raw_alerts' so other agents can reuse them.
-
-    Returns:
-        A list of alert dictionaries.
+    When a ToolContext is present, this function also:
+      - stores the alerts into tool_context.state['raw_alerts']
+      - records a 'tool_call' observability event in state['events']
     """
     alerts = _load_alerts_file()
 
@@ -62,6 +55,16 @@ def load_synthetic_alerts(
     if tool_context is not None:
         # Make the raw alerts available to other tools/agents in this session.
         tool_context.state["raw_alerts"] = filtered
+
+        record_event(
+            state=tool_context.state,
+            event_type=EVENT_TOOL_CALL,
+            actor="load_synthetic_alerts",
+            details={
+                "alert_id": alert_id,
+                "returned_count": len(filtered),
+            },
+        )
 
     return filtered
 
@@ -199,7 +202,6 @@ GUARDRAILS:
         AgentTool(agent=correlation_agent),
         AgentTool(agent=guardrail_remote_agent),
     ],
-    sub_agents=[log_parser_agent, correlation_agent, guardrail_remote_agent],
     # Store the full triage answer in session state.
     output_key="triage_summary",
 )

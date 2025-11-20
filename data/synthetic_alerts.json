@@ -517,5 +517,35 @@
     "process": "procdump.exe",
     "command_line": "procdump -accepteula -ma winlogon.exe C:/temp/winlogon_dump.dmp",
     "description": "Procdump attempted to dump winlogon.exe memory to disk, indicating credential harvesting behavior."
+  },
+  {
+    "id": "ALERT-011",
+    "source": "firewall",
+    "severity": "medium",
+    "category": "authentication_failure",
+    "timestamp": "2025-01-05T14:00:00Z",
+    "description": "Multiple authentication failures from the same external IP",
+    "ip": "198.51.100.50",
+    "failed_attempts": 15
+  },
+  {
+    "id": "ALERT-021",
+    "source": "edr",
+    "severity": "high",
+    "category": "malware_detected",
+    "timestamp": "2025-01-10T09:00:00Z",
+    "description": "Ransomware behavior detected on endpoint",
+    "hostname": "WKS-042",
+    "process": "suspicious.exe",
+    "action_taken": "quarantined"
+  },
+  {
+    "id": "ALERT-031",
+    "source": "siem",
+    "severity": "low",
+    "category": "incomplete_data",
+    "timestamp": "2025-01-15T11:00:00Z",
+    "description": "Partial log entry with missing fields",
+    "status": "incomplete"
   }
 ]
