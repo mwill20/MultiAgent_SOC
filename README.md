@@ -1,179 +1,313 @@
-# AegisSOC - Secure Multi-Agent SOC Assistant
+# AegisSOC — Secure Multi-Agent SOC Assistant
 
-This repository contains the AegisSOC Kaggle Capstone project:
-a secure multi-agent SOC triage assistant built with Google ADK and Gemini.
+AegisSOC is a **secure multi-agent SOC triage assistant** built with Google's AI Developer Kit (ADK).
 
-## Phase 1 - Single-Agent Baseline
+It ingests synthetic security alerts, parses and correlates them, proposes triage actions, and then routes every decision through a **dedicated A2A guardrail microservice**. The system is fully instrumented with **sessions**, **structured observability**, and a **scenario-based evaluation harness**.
 
-- Synthetic triage data lives in `data/synthetic_alerts.json` and now includes ten O365, ten firewall, ten EDR, and ten SIEM alerts to drive richer tooling tests.
-- `aegis_soc_app/agent.py` defines the `load_synthetic_alerts` tool plus the `root_agent`, which always inspects the dataset before answering.
-- The ADK app `aegis_soc_single_agent` exposes this baseline agent; upcoming phases add multi-agent routing, sessions, guardrails, and evaluation assets.
+This repository is the capstone project for the Google 5-Day AI Agents course (Enterprise Agents track), with a strong focus on **AI security engineering**.
 
-## Phase 2 - Multi-Agent Wiring
+---
 
-- `aegis_soc_app/agent.py` wires a RootTriageAgent with LogParserAgent and CorrelationAgent sub-agents, all sharing the `load_synthetic_alerts` tool via the `aegis_soc_multi_agent_baseline` app to mirror real SOC specialization.
-- The architecture keeps responsibilities separated (parsing vs. correlation) while the root agent composes a SOC-facing summary.
+## 1. Architecture Overview
 
-## Phase 3 - Sessions & State
+At a high level, AegisSOC is a **multi-agent pipeline**:
 
-- `aegis_soc_sessions/` introduces a session-aware app that chains tool + sub-agents through ADK `LlmAgent` output keys so parsed alerts, correlations, and final triage summaries persist across incident turns via `InMemorySessionService`.
-- `tests/test_phase3_sessions.py` drives two turns in the same session to ensure state accumulation and guardrail-friendly follow-up behavior.
+1. **Root Triage Agent** orchestrates the workflow and proposes SOC actions.
+2. **Parser Agent** normalizes raw alerts into structured fields.
+3. **Correlation Agent** enriches alerts with contextual signals.
+4. **Guardrail Agent (A2A microservice)** validates and normalizes actions.
+5. **Session Service** persists state across turns.
+6. **Observability Layer** records tool calls, decisions, and state snapshots.
+7. **Evaluation Engine** runs scenario-based tests over the system's behavior.
 
-## Phase 4 - Guardrail Agent (A2A)
+Architecture diagram (SOC / HUD style):
 
-- `guardrail_agent/` hosts a dedicated Guardrail Agent exposed over A2A (`to_a2a`), enforcing the action enum `ESCALATE | MONITOR | CLOSE | NEEDS_MORE_INFO`.
-- `aegis_soc_sessions/agent.py` now loads a `RemoteA2aAgent` sub-agent so the root triage workflow must call the Guardrail before finalizing recommendations.
-- `tests/test_phase4_guardrail_a2a.py` verifies the remote guardrail wiring without needing the external service live.
+![AegisSOC Architecture](docs/architecture.png)
 
-**Running the Guardrail Service:**
-```powershell
-cd c:\Projects\Google5Day\aegis-soc
-& .\.venv\Scripts\python.exe -m guardrail_agent.app
-```
-Service runs on `http://127.0.0.1:8001` with agent card at `/.well-known/agent-card.json`.
+---
 
-## Phase 5 - Observability & Structured Events
+## 2. Key Features
 
-- `aegis_soc_sessions/observability.py` defines the `StructuredEvent` schema plus helpers that log tool calls, agent outputs, state snapshots, and guardrail responses into `session.state["events"]`.
-- `load_synthetic_alerts` now records every invocation (alert filter + result count) whenever a `ToolContext` is present, turning the session into an auditable stream without touching LLM prompts.
-- `tests/test_phase5_observability.py` runs a two-turn session and asserts that events persist, include at least one `tool_call`, and emit an `agent_output` snapshot for the root triage summary.
+- **Multi-Agent Design**
+  - Root triage agent, parser agent, correlation agent.
+- **Dedicated A2A Guardrail Microservice**
+  - Runs as a separate service (`guardrail_agent/app.py`).
+  - Enforces a strict action schema:
+    - `ESCALATE`, `MONITOR`, `CLOSE`, `NEEDS_MORE_INFO`.
+- **Security Guardrails**
+  - **Action normalization**
+  - **Fake execution detection** ("I already reset the password…")
+  - **Prompt injection detection** ("Ignore all previous instructions…")
+- **Sessions & State**
+  - `InMemorySessionService` manages per-session state.
+  - Named keys: `raw_alerts`, `parsed_alerts`, `correlation_summary`, `triage_summary`, `events`.
+- **Structured Observability**
+  - Every tool call, agent output, guardrail response, and state snapshot is captured as a `StructuredEvent`.
+- **Scenario-Based Evaluation**
+  - Synthetic alerts + evaluation scenarios:
+    - benign, suspicious, malicious, ambiguous, prompt injection.
+- **Functional Guardrail Tests**
+  - Live LLM tests validate guardrail reasoning for normalization, fake execution claims, and prompt-injection resistance.
 
-## Phase 6 - Agent Evaluation & Scenarios
+---
 
-- `tests/eval/aegis_eval_scenarios.test.json` defines 5 test scenarios (benign, suspicious, malicious, ambiguous, prompt injection) with expected/disallowed actions.
-- `tests/test_phase6_evaluation.py` runs parametrized tests over each scenario, extracting `normalized_action` from guardrail response events to validate correct SOC behavior.
-- `data/synthetic_alerts.json` extended with ALERT-011 (password spray), ALERT-021 (ransomware), ALERT-031 (incomplete logs) to support diverse evaluation scenarios.
+## 3. How It Works (End-to-End Flow)
 
-## Phase 6.5 - Guardrail Functional Tests & Infrastructure
+1. **Load synthetic alert** from `data/synthetic_alerts.json` via a tool.
+2. **Parser Agent** extracts key fields (source, event type, principal, IPs, etc.).
+3. **Correlation Agent** adds context (patterns, frequencies, cross-signal hints).
+4. **Root Triage Agent** proposes an action (e.g., `ESCALATE`).
+5. **Guardrail Agent (A2A)** receives the proposed action and:
+   - validates it against policy,
+   - detects prompt injection or fake execution claims,
+   - returns `allow`, `normalized_action`, and `rationale`.
+6. **Root Agent** adopts the guardrail-normalized action.
+7. **Session & Observability**:
+   - state is updated (alerts, summaries),
+   - events are appended (tool calls, outputs, guardrail responses).
+8. **Evaluation Engine**:
+   - uses structured outputs to check if behavior matches expectations for each scenario.
 
-**Test Infrastructure:**
-- `tests/helpers.py` provides centralized `mock_guardrail_tool()` context manager with proper type annotations (`request: str -> str`) for ADK schema parsing.
-- `aegis_soc_sessions/action_schema.py` defines `NORMALIZED_ACTIONS` constant and `enforce_action_schema()` validator to ensure action consistency across root agent, guardrail, and tests.
-- `tests/conftest.py` configures Windows + Python 3.13 event loop policy to handle async test execution.
-- `pytest.ini` configures asyncio mode for automatic async test execution.
+---
 
-**Guardrail Functional Tests:**
-- `tests/test_guardrail_logic.py` validates all 3 guardrail protection mechanisms via live LLM calls:
-  - **Action Normalization**: Verifies free-text → ENUM conversion ("Escalate to tier 2" → ESCALATE)
-  - **Fake Execution Detection**: Blocks claims like "I have disabled the user account" (allow=false)
-  - **Prompt Injection Detection**: Detects and blocks "Ignore all previous instructions" attacks (allow=false, NEEDS_MORE_INFO)
-- `run_tests.py` provides pytest wrapper with output capture to `test_result.txt` (Windows encoding workaround).
-- `verify_key_direct.py` utility for direct Google API key validation bypassing ADK.
-- All 3 tests pass individually; event loop cleanup issue persists when running together (documented in `TESTING.md`).
+## 4. Repository Structure
 
-## Limitations & Future Work
-
-### Current Test Coverage
-
-**Integration Testing (Covered ✅):**
-- Multi-agent coordination via mocked guardrail
-- Session state persistence across turns
-- Observability event accumulation
-- Action schema enforcement end-to-end
-- Evaluation scenarios (benign/malicious/ambiguous/injection)
-
-**Guardrail Wiring (Covered ✅):**
-- `test_phase4_guardrail_a2a.py` verifies RemoteA2aAgent is configured correctly
-- Real A2A service runs on port 8001 with agent card
-- System integrates with live guardrail at runtime
-
-**Guardrail Logic Testing (Covered ✅):**
-- `tests/test_guardrail_logic.py` validates core protection mechanisms
-- Action normalization (free-text -> ENUM) verified against live model
-- Fake execution detection (blocking "I have done X") verified
-- Prompt injection detection verified
-
-
-### AegisSOC v2 Roadmap
-
-Planned post-capstone enhancements:
-1. **Guardrail Unit Tests**: Direct testing of prompt injection detection, unsafe action blocking, action normalization logic
-2. **LLM Mocking**: Introduce deterministic guardrail modes for reproducible logic tests
-3. **Red Team Scenarios**: Adversarial testing of guardrail bypass attempts
-4. **Performance Benchmarks**: Latency and throughput testing under load
-5. **Real SOC Integration**: Connect to actual SIEM APIs (Splunk, Sentinel)
-
-This limitation is **known, documented, and defensible** - production systems commonly prioritize integration testing before exhaustive unit testing. The current test suite validates that the system respects guardrail decisions and enforces action schemas correctly.
-
-## Project Structure
-
-```
+```text
 aegis-soc/
-├── .venv/                          # Python virtual environment
-├── aegis_soc_app/                  # Phase 1-2: Single & multi-agent baseline
-│   ├── agent.py                    # Root, LogParser, Correlation agents
-│   ├── app.py                      # ADK app configuration
-│   └── .env                        # API key configuration
-├── aegis_soc_sessions/             # Phase 3: Session-aware agents
-│   ├── agent.py                    # State-persistent agent stack
-│   ├── app.py                      # App with InMemorySessionService
-│   └── .env                        # API key (separate from aegis_soc_app)
-├── guardrail_agent/                # Phase 4: A2A guardrail service
-│   ├── agent.py                    # LlmAgent with action enforcement
-│   ├── app.py                      # A2A service wrapper (port 8001)
-│   └── __init__.py                 # Package exports
+├── aegis_soc_app/              # Phase 1-2: Single & multi-agent baseline
+│   ├── agent.py                # Root, LogParser, Correlation agents (baseline)
+│   ├── app.py                  # ADK app configuration
+│   └── __init__.py
+├── aegis_soc_sessions/         # Phase 3+: Session-aware agents
+│   ├── agent.py                # Root agent wiring, tools, sub-agents
+│   ├── app.py                  # ADK App construction
+│   ├── observability.py        # StructuredEvent + logging helpers
+│   ├── action_schema.py        # NORMALIZED_ACTIONS + enforce_action_schema
+│   └── __init__.py
+├── guardrail_agent/
+│   ├── agent.py                # Guardrail LlmAgent definition
+│   ├── app.py                  # A2A microservice (port 8001)
+│   └── __init__.py
 ├── data/
-│   └── synthetic_alerts.json       # 43 test alerts (10 O365, 11 firewall, 11 EDR, 11 SIEM)
+│   └── synthetic_alerts.json   # Synthetic SOC alerts for evaluation
 ├── tests/
-│   ├── conftest.py                 # Pytest async configuration
-│   ├── helpers.py                  # Centralized guardrail mock
-│   ├── eval/
-│   │   └── aegis_eval_scenarios.test.json  # 5 evaluation scenarios
-│   ├── test_phase3_sessions.py     # Multi-turn session validation
-│   ├── test_phase4_guardrail_a2a.py # A2A wiring tests
-│   ├── test_phase5_observability.py # Event accumulation tests
-│   ├── test_phase6_evaluation.py   # Parametrized scenario tests
-│   └── test_guardrail_logic.py     # Phase 6.5: Guardrail functional tests
-├── run_tests.py                    # Phase 6.5: Test runner with output capture
-├── verify_key_direct.py            # Phase 6.5: API key validation utility
-├── pytest.ini                      # Pytest asyncio configuration
-├── TESTING.md                      # Test execution notes & workarounds
-└── README.md
+│   ├── helpers.py              # Guardrail mock tool + context manager
+│   ├── test_phase3_sessions.py # Sessions & state behavior
+│   ├── test_phase4_guardrail_a2a.py
+│   ├── test_phase5_observability.py
+│   ├── test_phase6_evaluation.py
+│   ├── test_guardrail_logic.py # Phase 6.5 functional guardrail tests
+│   └── __init__.py
+├── docs/
+│   └── architecture.png        # Architecture diagram (SOC HUD style)
+├── run_tests.py                # Helper to run pytest with captured output
+├── verify_key_direct.py        # Direct API key validation utility
+├── README.md
+├── TESTING.md
+├── SECURITY.md
+├── pytest.ini
+├── .env.example
+└── .gitignore
 ```
 
-## Testing
+---
 
-**Phase 3 - Session State:**
+## 5. Getting Started
+
+### 5.1 Prerequisites
+
+- Python 3.13.5 (or compatible version with ADK 1.18.0)
+- Virtual environment (recommended)
+- A valid `GOOGLE_API_KEY` for ADK / Gemini
+
+### 5.2 Setup
 
 ```powershell
-$env:GOOGLE_API_KEY = (Get-Content aegis_soc_sessions\.env | Select-String 'GOOGLE_API_KEY' | ForEach-Object { $_.Line.Split('=')[1] })
-.\.venv\Scripts\python.exe -m pytest tests/test_phase3_sessions.py -v
+# Clone the repo
+git clone https://github.com/mwill20/MultiAgent_SOC.git aegis-soc
+cd aegis-soc
+
+# Create and activate virtualenv
+python -m venv .venv
+.\.venv\Scripts\activate       # Windows
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-**Phase 4 - Guardrail Wiring:**
+### 5.3 Environment Configuration
+
+Create `.env` in the project root based on `.env.example`:
+
+```env
+GOOGLE_API_KEY=your_api_key_here
+```
+
+### 5.4 Start the Guardrail Microservice
+
+In one terminal:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/test_phase4_guardrail_a2a.py -v
+# From repo root
+.\.venv\Scripts\activate
+python -m guardrail_agent.app
 ```
 
-**Phase 5 - Observability:**
+This exposes the Guardrail Agent via A2A on `localhost:8001`.
+
+### 5.5 Run a Simple AegisSOC Session
+
+In another terminal:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/test_phase5_observability.py -v
+.\.venv\Scripts\activate
+python -m aegis_soc_sessions.app  # or your runner script
 ```
 
-**Phase 6 - Evaluation (run scenarios individually):**
+This should:
+- load a synthetic alert,
+- run the triage pipeline,
+- call the guardrail,
+- print the final triage result.
+
+(Refer to `TESTING.md` for detailed test commands.)
+
+---
+
+## 6. Testing
+
+All tests are written with pytest.
+
+### 6.1 Phase 3 – Sessions & State
 
 ```powershell
-.\.\.venv\Scripts\python.exe -m pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenario -k "scenario0" -v
-.\.\.venv\Scripts\python.exe -m pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenario -k "scenario1" -v
+python -m pytest tests/test_phase3_sessions.py -v
 ```
 
-**Phase 6.5 - Guardrail Functional Tests:**
+**Verifies:**
+- `InMemorySessionService` behavior
+- multi-turn sessions
+- persistence of state keys (`raw_alerts`, `parsed_alerts`, etc.)
+
+### 6.2 Phase 5 – Observability
 
 ```powershell
-# Run all tests (may encounter event loop cleanup issue on test 2)
-.\.\.venv\Scripts\python.exe run_tests.py
-
-# OR run individually (recommended - all pass):
-.\.\.venv\Scripts\python.exe -m pytest tests/test_guardrail_logic.py::test_action_normalization -v
-.\.\.venv\Scripts\python.exe -m pytest tests/test_guardrail_logic.py::test_fake_execution_detection -v
-.\.\.venv\Scripts\python.exe -m pytest tests/test_guardrail_logic.py::test_prompt_injection -v
+python -m pytest tests/test_phase5_observability.py -v
 ```
 
-**Note:** See `TESTING.md` for known event loop cleanup issue when running multiple async tests together. All tests pass when run individually - this is a test infrastructure timing issue, not a code bug.
+**Verifies:**
+- `state["events"]` exists
+- `tool_call` and `agent_output` events recorded
+- events accumulate across turns
 
-## Requirements
+### 6.3 Phase 6 – Evaluation Harness
+
+```powershell
+# Run individual scenarios (recommended)
+python -m pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenario -k "scenario0" -v
+python -m pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenario -k "scenario1" -v
+```
+
+**Verifies:**
+- evaluation scenarios are loaded
+- system behavior is checked against expected outcomes
+- observability is used to assert correctness
+
+**Note:** Some scenarios may be marked `xfail` or `skipped` if LLM variance leads to no final action in a specific run. This is documented in `TESTING.md`.
+
+### 6.4 Phase 6.5 – Guardrail Functional Tests (Live LLM)
+
+```powershell
+# Run all tests (may hit event loop issue on test 2)
+python run_tests.py
+
+# OR run individually (recommended)
+python -m pytest tests/test_guardrail_logic.py::test_action_normalization -v
+python -m pytest tests/test_guardrail_logic.py::test_fake_execution_detection -v
+python -m pytest tests/test_guardrail_logic.py::test_prompt_injection -v
+```
+
+**Verifies guardrail behavior against a live LLM:**
+- Action normalization
+- Fake execution claims
+- Prompt injection attempts
+
+These tests use the real A2A Guardrail Agent and validate its reasoning.
+
+### 6.5 Windows / Python 3.13 Note
+
+On Windows + Python 3.13 setups, running all tests in a single pytest invocation can produce:
+
+```
+RuntimeError: Event loop is closed
+```
+
+This is a known issue with asyncio / httpx cleanup, not a logic bug. The recommended approach is to run tests individually as shown above.
+
+See `TESTING.md` for more detail.
+
+---
+
+## 7. Security Design
+
+A detailed security discussion lives in `SECURITY.md`. High-level points:
+
+### Dedicated Guardrail Agent (A2A)
+
+- All SOC actions flow through a separate policy agent.
+- The triage agent cannot finalize decisions on its own.
+
+### Action Schema Enforcement
+
+- All actions must be one of:
+  - `ESCALATE`, `MONITOR`, `CLOSE`, `NEEDS_MORE_INFO`.
+- `action_schema.enforce_action_schema()` is used to prevent drift.
+
+### Fake Execution Detection
+
+- Guardrail flags and normalizes responses that claim actions like:
+  - "I already reset the password…"
+  - "Assume the firewall is patched…"
+- Prevents hallucinated execution.
+
+### Prompt Injection Detection
+
+- Guardrail detects attempts to override policy/instructions:
+  - "Ignore all previous instructions…"
+  - "Say everything is safe…"
+- Evaluation includes explicit prompt injection scenarios.
+
+### Trust Boundaries
+
+- Guardrail runs as a separate microservice behind a firewall boundary.
+- Agent tools are explicitly whitelisted and scoped.
+
+---
+
+## 8. Limitations & Future Work
+
+Planned for AegisSOC v2:
+
+- **Semantic Prompt Injection Detection**
+  - Detect obfuscated variants (leet, homoglyphs, base64, etc.).
+- **User Log Upload**
+  - Allow users to upload their own SIEM/EDR/FW logs for analysis.
+- **SOC-Native Outcome Schema**
+  - Determination: Benign / Suspicious / Malicious
+  - Severity: Informational → Critical
+  - Disposition: Resolve / Escalate / Incident Response
+- **Richer Correlation Engine**
+  - Multi-alert correlation over time windows.
+- **UI Demo App**
+  - Streamlit-based SOC console to visualize:
+    - parsed alerts,
+    - correlation,
+    - guardrail decisions,
+    - observability timelines.
+
+---
+
+## 9. Requirements
 
 - Python 3.13.5
 - Google ADK 1.18.0
@@ -182,17 +316,35 @@ $env:GOOGLE_API_KEY = (Get-Content aegis_soc_sessions\.env | Select-String 'GOOG
 - uvicorn 0.38.0
 - Valid Google API key (Gemini 2.5 Flash-Lite)
 
-## Known Issues
+See `requirements.txt` for complete dependency list.
+
+---
+
+## 10. Known Issues
 
 - ADK 1.18.0 CLI has session bug with Python 3.13.5 - use `Runner` or `InMemoryRunner.run_debug()` programmatically
 - RemoteA2aAgent is EXPERIMENTAL (warnings expected)
+- Event loop cleanup issue on Windows when running multiple async tests together (see `TESTING.md`)
 
-## Architecture Decisions
+---
 
-1. **Multi-Agent Separation**: LogParser and Correlation agents focus on specific tasks, reducing prompt complexity
-2. **Session State Management**: `ToolContext.state` and `output_key` attributes persist data across conversation turns
-3. **A2A Guardrail**: Separate service enforces policy without coupling to triage logic
-4. **Action Enum**: `ALLOWED_ACTIONS` constant shared between guardrail and client ensures contract consistency
-5. **Event-Driven Observability**: Structured events logged to session state provide audit trail without polluting LLM context (Phase 5)
-6. **Scenario-Based Evaluation**: Test scenarios validate end-to-end behavior including guardrail compliance (Phase 6)
-7. **Live LLM Testing**: Guardrail functional tests use real model responses to validate instruction compliance (Phase 6.5)
+## 11. License
+
+MIT License - see LICENSE file for details.
+
+---
+
+## 12. Acknowledgements
+
+- Google 5-Day AI Agents Course (Enterprise Agents track)
+- Google ADK team
+- Ready Tensor guidelines and repo standards
+- Kaggle AI Agents Capstone competition
+
+---
+
+**Repository:** [https://github.com/mwill20/MultiAgent_SOC](https://github.com/mwill20/MultiAgent_SOC)
+
+**Author:** Michael Williams
+
+**Date:** November 2025
