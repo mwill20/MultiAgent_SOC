@@ -25,7 +25,7 @@ Validates:
 File: `tests/test_phase3_sessions.py`
 
 Run:
-```bash
+```powershell
 python -m pytest tests/test_phase3_sessions.py -q
 ```
 
@@ -38,7 +38,7 @@ Validates:
 File: `tests/test_phase5_observability.py`
 
 Run:
-```bash
+```powershell
 python -m pytest tests/test_phase5_observability.py -q
 ```
 
@@ -50,7 +50,7 @@ Validates:
 File: `tests/test_phase6_evaluation.py`
 
 Run:
-```bash
+```powershell
 python -m pytest tests/test_phase6_evaluation.py -q
 ```
 
@@ -65,8 +65,13 @@ Validates the actual guardrail microservice with real reasoning:
 
 File: `tests/test_guardrail_logic.py`
 
+**Prerequisite:** Ensure guardrail microservice is running first:
+```powershell
+python -m guardrail_agent.app
+```
+
 Run:
-```bash
+```powershell
 python -m pytest tests/test_guardrail_logic.py -q
 ```
 
@@ -83,7 +88,7 @@ Due to a known asyncio / httpx event loop cleanup issue in:
 
 …it is recommended to run tests individually:
 
-```bash
+```powershell
 python -m pytest tests/test_phase3_sessions.py -q
 python -m pytest tests/test_phase5_observability.py -q
 python -m pytest tests/test_phase6_evaluation.py -q
@@ -96,7 +101,7 @@ python -m pytest tests/test_guardrail_logic.py -q
 
 For convenience:
 
-```bash
+```powershell
 python run_tests.py
 ```
 
@@ -131,15 +136,15 @@ RuntimeError: Event loop is closed
 **Guardrail not reachable:**
 
 Ensure guardrail microservice is running:
-```bash
+```powershell
 python -m guardrail_agent.app
 ```
 
 **Invalid / missing API key:**
 
 Check `.env`:
-```
-GOOGLE_API_KEY=your_key
+```env
+GOOGLE_API_KEY=your_api_key_here
 ```
 
 ---

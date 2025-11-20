@@ -33,7 +33,8 @@ Architecture diagram (SOC / HUD style):
 ## 2. Key Features
 
 - **Multi-Agent Design**
-  - Root triage agent, parser agent, correlation agent.
+  - Root triage agent, parser agent, correlation agent
+  
 - **Dedicated A2A Guardrail Microservice**
   - Runs as a separate service (`guardrail_agent/app.py`).
   - Enforces a strict action schema:
@@ -95,23 +96,30 @@ aegis-soc/
 ├── data/
 │   └── synthetic_alerts.json   # Synthetic SOC alerts for evaluation
 ├── tests/
+│   ├── conftest.py             # pytest configuration
 │   ├── helpers.py              # Guardrail mock tool + context manager
 │   ├── test_phase3_sessions.py # Sessions & state behavior
 │   ├── test_phase4_guardrail_a2a.py
 │   ├── test_phase5_observability.py
 │   ├── test_phase6_evaluation.py
 │   ├── test_guardrail_logic.py # Phase 6.5 functional guardrail tests
+│   ├── eval/                   # Evaluation scenario data
 │   └── __init__.py
 ├── docs/
-│   └── architecture.png        # Architecture diagram (SOC HUD style)
+│   ├── architecture.png        # Architecture diagram (SOC HUD style)
+│   └── MultiAgentSOC_Logo.png  # AegisSOC logo
 ├── run_tests.py                # Helper to run pytest with captured output
 ├── verify_key_direct.py        # Direct API key validation utility
+├── demo_script.md              # 3-minute demo video script
+├── kaggle_writeup.md           # Kaggle submission writeup
 ├── README.md
 ├── TESTING.md
 ├── SECURITY.md
+├── requirements.txt            # Python dependencies
 ├── pytest.ini
 ├── .env.example
-└── .gitignore
+├── .gitignore
+└── LICENSE
 ```
 
 ---
@@ -164,17 +172,22 @@ This exposes the Guardrail Agent via A2A on `localhost:8001`.
 In another terminal:
 
 ```powershell
-.\.venv\Scripts\activate
-python -m aegis_soc_sessions.app  # or your runner script
+.\\venv\Scripts\activate
+# Run via pytest (recommended)
+python -m pytest tests/test_phase3_sessions.py -v
+
+# Or run the ADK app directly
+python -m aegis_soc_sessions.app
 ```
 
-This should:
-- load a synthetic alert,
-- run the triage pipeline,
-- call the guardrail,
-- print the final triage result.
+This will:
 
-(Refer to `TESTING.md` for detailed test commands.)
+- Load a synthetic alert
+- Run the triage pipeline
+- Call the guardrail microservice
+- Print the final triage result
+
+**Note:** Refer to `TESTING.md` for all test commands and execution details.
 
 ---
 
@@ -189,6 +202,7 @@ python -m pytest tests/test_phase3_sessions.py -v
 ```
 
 **Verifies:**
+
 - `InMemorySessionService` behavior
 - multi-turn sessions
 - persistence of state keys (`raw_alerts`, `parsed_alerts`, etc.)
@@ -200,6 +214,7 @@ python -m pytest tests/test_phase5_observability.py -v
 ```
 
 **Verifies:**
+
 - `state["events"]` exists
 - `tool_call` and `agent_output` events recorded
 - events accumulate across turns
@@ -213,6 +228,7 @@ python -m pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenari
 ```
 
 **Verifies:**
+
 - evaluation scenarios are loaded
 - system behavior is checked against expected outcomes
 - observability is used to assert correctness
@@ -232,6 +248,7 @@ python -m pytest tests/test_guardrail_logic.py::test_prompt_injection -v
 ```
 
 **Verifies guardrail behavior against a live LLM:**
+
 - Action normalization
 - Fake execution claims
 - Prompt injection attempts
@@ -242,7 +259,7 @@ These tests use the real A2A Guardrail Agent and validate its reasoning.
 
 On Windows + Python 3.13 setups, running all tests in a single pytest invocation can produce:
 
-```
+```text
 RuntimeError: Event loop is closed
 ```
 
@@ -313,22 +330,23 @@ Planned for AegisSOC v2:
 
 ## 9. Requirements
 
-- Python 3.13.5
+- Python 3.13.5 (or compatible version)
 - Google ADK 1.18.0
 - a2a-sdk 0.3.14
 - pytest 9.0.1 (with pytest-asyncio)
 - uvicorn 0.38.0
+- httpx, pydantic, python-dotenv
 - Valid Google API key (Gemini 2.5 Flash-Lite)
 
-See `requirements.txt` for complete dependency list.
+**See `requirements.txt` for the complete dependency list.**
 
 ---
 
 ## 10. Known Issues
 
-- ADK 1.18.0 CLI has session bug with Python 3.13.5 - use `Runner` or `InMemoryRunner.run_debug()` programmatically
-- RemoteA2aAgent is EXPERIMENTAL (warnings expected)
-- Event loop cleanup issue on Windows when running multiple async tests together (see `TESTING.md`)
+- **ADK 1.18.0 CLI:** Session bug with Python 3.13.5 — use `Runner` or `InMemoryRunner.run_debug()` programmatically
+- **RemoteA2aAgent:** Marked as EXPERIMENTAL (warnings expected during runtime)
+- **Event Loop Cleanup:** Issue on Windows when running multiple async tests together (see `TESTING.md` for workaround)
 
 ---
 

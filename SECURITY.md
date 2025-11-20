@@ -9,7 +9,7 @@ AegisSOC is designed as a **secure multi-agent SOC assistant** with strict actio
 ### 1.1 System Context
 AegisSOC processes **synthetic alerts** and produces triage recommendations. It does *not* execute real actions.
 
-Primary goals:
+**Primary goals:**
 
 - Prevent unsafe or manipulated output  
 - Prevent hallucinated "executed actions"  
@@ -20,6 +20,7 @@ Primary goals:
 ## 2. Trust Boundaries
 
 ### High-Trust Components
+
 - Guardrail Agent  
 - Action schema  
 - Evaluation engine  
@@ -27,11 +28,13 @@ Primary goals:
 - Observability system  
 
 ### Medium-Trust Components
+
 - Root triage agent  
 - Parser agent  
 - Correlation agent  
 
 ### Low-Trust Inputs
+
 - User prompt  
 - Synthetic alerts  
 - Any externally injected content  
@@ -92,6 +95,7 @@ The system records:
 - state snapshots  
 
 These logs enable:
+
 - debugging  
 - safety forensics  
 - post-hoc verification  
