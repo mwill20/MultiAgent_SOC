@@ -109,7 +109,6 @@ aegis-soc/
 │   ├── architecture.png        # Architecture diagram (SOC HUD style)
 │   └── MultiAgentSOC_Logo.png  # AegisSOC logo
 ├── run_tests.py                # Helper to run pytest with captured output
-├── verify_key_direct.py        # Direct API key validation utility
 ├── demo_script.md              # 3-minute demo video script
 ├── kaggle_writeup.md           # Kaggle submission writeup
 ├── README.md
