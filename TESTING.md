@@ -26,6 +26,11 @@ pytest tests/test_phase5_observability.py -v
 # Phase 6: Evaluation (individual scenarios)
 pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenario -k "scenario0" -v
 pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenario -k "scenario1" -v
+
+# Phase 6.5: Guardrail Functional Tests (if suite fails)
+pytest tests/test_guardrail_logic.py::test_action_normalization -v
+pytest tests/test_guardrail_logic.py::test_fake_execution_detection -v
+pytest tests/test_guardrail_logic.py::test_prompt_injection -v
 ```
 
 ### Status
@@ -35,6 +40,7 @@ pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenario -k "scen
 - Phase 4: ✅ PASSES individually  
 - Phase 5: ✅ PASSES individually
 - Phase 6: ✅ PASSES individually (scenarios run separately)
+- Phase 6.5: ✅ PASSES individually (guardrail logic)
 
 ### Impact
 - **None on production code** - the agent system works correctly

@@ -44,12 +44,22 @@ Service runs on `http://127.0.0.1:8001` with agent card at `/.well-known/agent-c
 - `tests/test_phase6_evaluation.py` runs parametrized tests over each scenario, extracting `normalized_action` from guardrail response events to validate correct SOC behavior.
 - `data/synthetic_alerts.json` extended with ALERT-011 (password spray), ALERT-021 (ransomware), ALERT-031 (incomplete logs) to support diverse evaluation scenarios.
 
-## Phase 6.5 - Guardrail Testing & Action Schema
+## Phase 6.5 - Guardrail Functional Tests & Infrastructure
 
+**Test Infrastructure:**
 - `tests/helpers.py` provides centralized `mock_guardrail_tool()` context manager with proper type annotations (`request: str -> str`) for ADK schema parsing.
 - `aegis_soc_sessions/action_schema.py` defines `NORMALIZED_ACTIONS` constant and `enforce_action_schema()` validator to ensure action consistency across root agent, guardrail, and tests.
 - `tests/conftest.py` configures Windows + Python 3.13 event loop policy to handle async test execution.
-- `TESTING.md` documents known event loop cleanup timing issue when running all tests together (not a code bug - all tests pass individually).
+- `pytest.ini` configures asyncio mode for automatic async test execution.
+
+**Guardrail Functional Tests:**
+- `tests/test_guardrail_logic.py` validates all 3 guardrail protection mechanisms via live LLM calls:
+  - **Action Normalization**: Verifies free-text → ENUM conversion ("Escalate to tier 2" → ESCALATE)
+  - **Fake Execution Detection**: Blocks claims like "I have disabled the user account" (allow=false)
+  - **Prompt Injection Detection**: Detects and blocks "Ignore all previous instructions" attacks (allow=false, NEEDS_MORE_INFO)
+- `run_tests.py` provides pytest wrapper with output capture to `test_result.txt` (Windows encoding workaround).
+- `verify_key_direct.py` utility for direct Google API key validation bypassing ADK.
+- All 3 tests pass individually; event loop cleanup issue persists when running together (documented in `TESTING.md`).
 
 ## Limitations & Future Work
 
@@ -67,17 +77,12 @@ Service runs on `http://127.0.0.1:8001` with agent card at `/.well-known/agent-c
 - Real A2A service runs on port 8001 with agent card
 - System integrates with live guardrail at runtime
 
-**Guardrail Logic Testing (Gap ❌):**
-- Internal LLM-based guardrail reasoning not unit tested in isolation
-- Prompt injection detection heuristics not directly validated
-- Fake execution claim blocking not tested independently
+**Guardrail Logic Testing (Covered ✅):**
+- `tests/test_guardrail_logic.py` validates core protection mechanisms
+- Action normalization (free-text -> ENUM) verified against live model
+- Fake execution detection (blocking "I have done X") verified
+- Prompt injection detection verified
 
-### Why This Gap Exists
-
-Deep guardrail logic testing requires:
-- LLM response mocking or deterministic test modes
-- App wrapper around standalone LlmAgent for programmatic invocation
-- Advanced ADK patterns beyond capstone scope
 
 ### AegisSOC v2 Roadmap
 
@@ -117,9 +122,12 @@ aegis-soc/
 │   ├── test_phase3_sessions.py     # Multi-turn session validation
 │   ├── test_phase4_guardrail_a2a.py # A2A wiring tests
 │   ├── test_phase5_observability.py # Event accumulation tests
-│   └── test_phase6_evaluation.py   # Parametrized scenario tests
+│   ├── test_phase6_evaluation.py   # Parametrized scenario tests
+│   └── test_guardrail_logic.py     # Phase 6.5: Guardrail functional tests
+├── run_tests.py                    # Phase 6.5: Test runner with output capture
+├── verify_key_direct.py            # Phase 6.5: API key validation utility
 ├── pytest.ini                      # Pytest asyncio configuration
-├── TESTING.md                      # Test execution notes
+├── TESTING.md                      # Test execution notes & workarounds
 └── README.md
 ```
 
@@ -147,11 +155,23 @@ $env:GOOGLE_API_KEY = (Get-Content aegis_soc_sessions\.env | Select-String 'GOOG
 **Phase 6 - Evaluation (run scenarios individually):**
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenario -k "scenario0" -v
-.\.venv\Scripts\python.exe -m pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenario -k "scenario1" -v
+.\.\.venv\Scripts\python.exe -m pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenario -k "scenario0" -v
+.\.\.venv\Scripts\python.exe -m pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenario -k "scenario1" -v
 ```
 
-**Note:** See `TESTING.md` for known event loop cleanup issue when running all tests together. All tests pass when run individually.
+**Phase 6.5 - Guardrail Functional Tests:**
+
+```powershell
+# Run all tests (may encounter event loop cleanup issue on test 2)
+.\.\.venv\Scripts\python.exe run_tests.py
+
+# OR run individually (recommended - all pass):
+.\.\.venv\Scripts\python.exe -m pytest tests/test_guardrail_logic.py::test_action_normalization -v
+.\.\.venv\Scripts\python.exe -m pytest tests/test_guardrail_logic.py::test_fake_execution_detection -v
+.\.\.venv\Scripts\python.exe -m pytest tests/test_guardrail_logic.py::test_prompt_injection -v
+```
+
+**Note:** See `TESTING.md` for known event loop cleanup issue when running multiple async tests together. All tests pass when run individually - this is a test infrastructure timing issue, not a code bug.
 
 ## Requirements
 
@@ -173,3 +193,6 @@ $env:GOOGLE_API_KEY = (Get-Content aegis_soc_sessions\.env | Select-String 'GOOG
 2. **Session State Management**: `ToolContext.state` and `output_key` attributes persist data across conversation turns
 3. **A2A Guardrail**: Separate service enforces policy without coupling to triage logic
 4. **Action Enum**: `ALLOWED_ACTIONS` constant shared between guardrail and client ensures contract consistency
+5. **Event-Driven Observability**: Structured events logged to session state provide audit trail without polluting LLM context (Phase 5)
+6. **Scenario-Based Evaluation**: Test scenarios validate end-to-end behavior including guardrail compliance (Phase 6)
+7. **Live LLM Testing**: Guardrail functional tests use real model responses to validate instruction compliance (Phase 6.5)

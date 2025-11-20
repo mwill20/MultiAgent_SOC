@@ -8,10 +8,11 @@ AegisSOC is a proof-of-concept multi-agent SOC triage assistant for educational 
 
 | Version | Status |
 | ------- | ------ |
-| Phase 4 (current) | In Development |
+| Phase 6.5 (current) | In Development |
+| Phase 6 | Stable |
+| Phase 5 | Stable |
+| Phase 4 | Stable |
 | Phase 3 | Stable |
-| Phase 2 | Stable |
-| Phase 1 | Stable |
 
 ## Security Considerations
 
@@ -136,11 +137,16 @@ This is an educational project. For security concerns:
 ### Testing Security Controls
 
 ```powershell
-# Test guardrail detects fake execution claims
-# (Phase 5+ - not yet implemented)
+# Phase 6.5: Guardrail functional tests now implemented
+
+# Test action normalization
+.\.\.venv\Scripts\python.exe -m pytest tests/test_guardrail_logic.py::test_action_normalization -v
+
+# Test fake execution detection
+.\.\.venv\Scripts\python.exe -m pytest tests/test_guardrail_logic.py::test_fake_execution_detection -v
 
 # Test prompt injection detection
-# (Phase 5+ - not yet implemented)
+.\.\.venv\Scripts\python.exe -m pytest tests/test_guardrail_logic.py::test_prompt_injection -v
 ```
 
 ## Compliance Notes
@@ -157,13 +163,18 @@ For compliance with SOC 2, ISO 27001, or similar:
 
 ## Future Security Enhancements
 
-**Planned for Phase 5+:**
+**Completed in Phase 5-6.5:**
+- [x] Structured security event logging (Phase 5: observability.py)
+- [x] Guardrail functional testing (Phase 6.5: test_guardrail_logic.py)
+- [x] Evaluation scenarios including prompt injection (Phase 6)
+
+**Planned for v2.0:**
 - [ ] Rate limiting on A2A endpoints
 - [ ] Input sanitization middleware
-- [ ] Structured security event logging
 - [ ] Alert validation against MITRE ATT&CK
 - [ ] Automated security testing in CI/CD
 - [ ] Container security scanning
+- [ ] Red team adversarial testing
 
 ## References
 
@@ -174,5 +185,5 @@ For compliance with SOC 2, ISO 27001, or similar:
 
 ---
 
-**Last Updated:** November 18, 2025  
-**Version:** Phase 4
+**Last Updated:** November 20, 2025  
+**Version:** Phase 6.5

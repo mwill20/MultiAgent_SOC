@@ -5,6 +5,11 @@ __pycache__/
 *.pyd
 *.log
 
+# Test outputs
+test_output*.txt
+test_result.txt
+test_result.log
+
 # Virtual env
 .venv/
 venv/
