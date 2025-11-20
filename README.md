@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="docs/MultiAgentSOC_Logo.png" alt="AegisSOC Logo" width="400"/>
+</div>
+
 # AegisSOC — Secure Multi-Agent SOC Assistant
 
 AegisSOC is a **secure multi-agent SOC triage assistant** built with Google's AI Developer Kit (ADK).
