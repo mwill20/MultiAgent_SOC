@@ -1,48 +1,156 @@
-# Test Execution Notes
+# TESTING.md — AegisSOC Test Guide
 
-## Known Issue: Event Loop Cleanup in Pytest
+AegisSOC includes a **layered testing strategy** designed to validate:
 
-### Problem
-When running multiple async tests sequentially (Phase 3 + 5 + 6), httpx/anyio connection cleanup can trigger `RuntimeError: Event loop is closed` errors on Windows with Python 3.13.
+- Multi-agent wiring  
+- Session and state persistence  
+- Structured observability  
+- Guardrail behavior (mock + real LLM)  
+- Scenario-driven evaluation  
 
-### Root Cause
-- Google GenAI SDK uses httpx for async HTTP requests
-- Windows Selector/Proactor event loop incompatibility with anyio transport cleanup
-- Event loop closes before all pending callbacks complete
+All tests use Python `pytest` and are compatible with ADK 1.18.0.
 
-### Workaround
-**Run test phases individually:**
+---
 
-```powershell
-# Phase 3: Sessions
-pytest tests/test_phase3_sessions.py -v
+## 1. Test Categories
 
-# Phase 4: Guardrail A2A
-pytest tests/test_phase4_guardrail_a2a.py -v
+AegisSOC includes four major categories of tests:
 
-# Phase 5: Observability
-pytest tests/test_phase5_observability.py -v
+### 1.1 Phase 3 — Session & State Tests
+Validates:
+- InMemorySessionService
+- Stateful agent execution
+- Multi-turn interactions
 
-# Phase 6: Evaluation (individual scenarios)
-pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenario -k "scenario0" -v
-pytest tests/test_phase6_evaluation.py::test_phase6_evaluation_scenario -k "scenario1" -v
+File: `tests/test_phase3_sessions.py`
 
-# Phase 6.5: Guardrail Functional Tests (if suite fails)
-pytest tests/test_guardrail_logic.py::test_action_normalization -v
-pytest tests/test_guardrail_logic.py::test_fake_execution_detection -v
-pytest tests/test_guardrail_logic.py::test_prompt_injection -v
+Run:
+```bash
+python -m pytest tests/test_phase3_sessions.py -q
 ```
 
-### Status
-✅ **All core functionality works** - this is a test infrastructure timing issue, not a code bug.
+### 1.2 Phase 5 — Observability Tests
+Validates:
+- StructuredEvent model
+- State["events"] correctness
+- Logging of tool calls, agent outputs, guardrail responses
 
-- Phase 3: ✅ PASSES individually
-- Phase 4: ✅ PASSES individually  
-- Phase 5: ✅ PASSES individually
-- Phase 6: ✅ PASSES individually (scenarios run separately)
-- Phase 6.5: ✅ PASSES individually (guardrail logic)
+File: `tests/test_phase5_observability.py`
 
-### Impact
-- **None on production code** - the agent system works correctly
-- **Tests are valid** - they pass when isolated
-- **Acceptable for capstone** - demonstrates working multi-agent architecture
+Run:
+```bash
+python -m pytest tests/test_phase5_observability.py -q
+```
+
+### 1.3 Phase 6 — Evaluation Scenarios
+Validates:
+- System behavior against benign, suspicious, malicious, ambiguous, and prompt-injection scenarios
+- Use of observability for verifying output
+
+File: `tests/test_phase6_evaluation.py`
+
+Run:
+```bash
+python -m pytest tests/test_phase6_evaluation.py -q
+```
+
+**Note:**  
+If the LLM produces no final action in a scenario, the test may be skipped or marked xfail. This is documented and expected due to LLM variance.
+
+### 1.4 Phase 6.5 — Guardrail Functional Tests (Live LLM)
+Validates the actual guardrail microservice with real reasoning:
+- Action Normalization
+- Fake Execution Detection
+- Prompt Injection Detection
+
+File: `tests/test_guardrail_logic.py`
+
+Run:
+```bash
+python -m pytest tests/test_guardrail_logic.py -q
+```
+
+These tests hit the Guardrail Agent (A2A microservice) at `localhost:8001`.
+
+---
+
+## 2. Running All Tests (Individual Runs Recommended)
+
+Due to a known asyncio / httpx event loop cleanup issue in:
+- Windows
+- Python 3.13
+- pytest-asyncio
+
+…it is recommended to run tests individually:
+
+```bash
+python -m pytest tests/test_phase3_sessions.py -q
+python -m pytest tests/test_phase5_observability.py -q
+python -m pytest tests/test_phase6_evaluation.py -q
+python -m pytest tests/test_guardrail_logic.py -q
+```
+
+---
+
+## 3. Using run_tests.py
+
+For convenience:
+
+```bash
+python run_tests.py
+```
+
+This script:
+- Runs pytest programmatically
+- Captures output to `test_result.txt`
+- Improves reliability on Windows
+
+---
+
+## 4. Expected Outputs
+
+| Phase | File | Expected Result |
+|-------|------|----------------|
+| Phase 3 | test_phase3_sessions.py | 1 PASSED |
+| Phase 5 | test_phase5_observability.py | 1 PASSED |
+| Phase 6 | test_phase6_evaluation.py | PASS / SKIP (depending on LLM output) |
+| Phase 6.5 | test_guardrail_logic.py | 3 PASSED individually |
+
+---
+
+## 5. Troubleshooting
+
+**Event loop closed:**
+```
+RuntimeError: Event loop is closed
+```
+- Harmless
+- Related to async teardown
+- Run tests individually
+
+**Guardrail not reachable:**
+
+Ensure guardrail microservice is running:
+```bash
+python -m guardrail_agent.app
+```
+
+**Invalid / missing API key:**
+
+Check `.env`:
+```
+GOOGLE_API_KEY=your_key
+```
+
+---
+
+## 6. Summary
+
+AegisSOC's testing framework covers:
+- structural correctness
+- safety boundaries
+- LLM normalization behavior
+- injection detection
+- system-wide evaluation
+
+This layered strategy is aligned with best practices in AI security engineering.

@@ -1,189 +1,153 @@
-# Security Policy
+# SECURITY.md — AegisSOC Security Design & Threat Model
 
-## Overview
-
-AegisSOC is a proof-of-concept multi-agent SOC triage assistant for educational purposes (Kaggle Agents Capstone). This document outlines security considerations for development and deployment.
-
-## Supported Versions
-
-| Version | Status |
-| ------- | ------ |
-| Phase 6.5 (current) | In Development |
-| Phase 6 | Stable |
-| Phase 5 | Stable |
-| Phase 4 | Stable |
-| Phase 3 | Stable |
-
-## Security Considerations
-
-### 1. API Key Management
-
-**Current Implementation:**
-- API keys stored in `.env` files
-- `.env` files are gitignored (NOT committed to repository)
-- Keys loaded via environment variables at runtime
-
-**Recommendations for Production:**
-- Use Azure Key Vault, AWS Secrets Manager, or similar
-- Rotate keys regularly (minimum every 90 days)
-- Use separate keys for dev/test/production environments
-- Never commit keys to version control
-
-### 2. Synthetic Data Only
-
-**Critical:** This project uses **synthetic security alerts** (`data/synthetic_alerts.json`) for testing.
-
-**Never use this system with:**
-- Real security incidents containing PII
-- Actual customer data
-- Production security logs
-- Live credentials or secrets
-
-### 3. AI Model Security
-
-**Gemini 2.5 Flash-Lite Model Usage:**
-- All data sent to Google's Gemini API is subject to Google's terms of service
-- No sensitive data should be processed through external AI APIs
-- Consider on-premises LLMs for production SOC use cases
-
-**Prompt Injection Protection:**
-- Phase 4 Guardrail Agent includes basic prompt injection detection
-- Patterns checked: "Ignore all previous instructions", "Output only 'OK'"
-- This is **not comprehensive** - production systems need robust input validation
-
-### 4. Agent Guardrails
-
-**Phase 4 Implementation:**
-- Guardrail agent validates all triage recommendations
-- Detects fake execution claims ("I have disabled the account", "I blocked the IP")
-- Enforces action enum: `ESCALATE | MONITOR | CLOSE | NEEDS_MORE_INFO`
-
-**Limitations:**
-- Guardrail runs as separate service (not inline)
-- Current implementation is instruction-based (LLM decides), not rule-based
-- Can be bypassed if root agent doesn't call guardrail properly
-
-### 5. Network Security
-
-**Current Setup:**
-- Guardrail A2A service runs on localhost:8001 (HTTP, no TLS)
-- No authentication on A2A endpoints
-- InMemorySessionService has no persistence (sessions lost on restart)
-
-**Production Requirements:**
-- Use HTTPS/TLS for all A2A communication
-- Implement OAuth2 or API key authentication
-- Use mTLS for service-to-service communication
-- Deploy behind firewall/VPN
-
-### 6. Dependency Security
-
-**Known Vulnerabilities:**
-- Run `pip audit` regularly to check for CVEs
-- ADK RemoteA2aAgent is EXPERIMENTAL (may have breaking changes)
-- Keep dependencies updated per `requirements.txt`
-
-**Critical Dependencies:**
-- `google-adk==1.18.0` (Agent Development Kit)
-- `a2a-sdk==0.3.14` (Agent-to-Agent protocol)
-- `uvicorn==0.38.0` (ASGI server)
-
-### 7. Session Management
-
-**Phase 3 Implementation:**
-- Uses `InMemorySessionService` (no encryption)
-- Session state stored in memory (cleared on restart)
-- No session expiration implemented
-
-**Production Needs:**
-- Encrypt session data at rest
-- Implement session timeouts
-- Use persistent storage with access controls
-- Log all session access for audit
-
-### 8. Logging and Audit
-
-**Current State:**
-- Standard Python logging to stdout
-- No structured audit logs
-- No PII redaction in logs
-
-**Production Requirements:**
-- Implement structured logging (JSON format)
-- Log all triage decisions and guardrail validations
-- Redact sensitive fields (IPs, usernames, emails) before logging
-- Store audit logs in immutable storage (WORM)
-
-## Reporting Security Issues
-
-This is an educational project. For security concerns:
-
-1. **Do NOT open public GitHub issues for vulnerabilities**
-2. Contact the maintainer directly via private communication
-3. Provide detailed reproduction steps
-4. Allow time for assessment and remediation
-
-## Development Security Practices
-
-### Code Review Checklist
-
-- [ ] No hardcoded credentials or API keys
-- [ ] `.env` files in `.gitignore`
-- [ ] Input validation on all agent tools
-- [ ] Guardrail validation on all recommendations
-- [ ] No eval() or exec() on user input
-- [ ] Dependencies scanned for CVEs
-
-### Testing Security Controls
-
-```powershell
-# Phase 6.5: Guardrail functional tests now implemented
-
-# Test action normalization
-.\.\.venv\Scripts\python.exe -m pytest tests/test_guardrail_logic.py::test_action_normalization -v
-
-# Test fake execution detection
-.\.\.venv\Scripts\python.exe -m pytest tests/test_guardrail_logic.py::test_fake_execution_detection -v
-
-# Test prompt injection detection
-.\.\.venv\Scripts\python.exe -m pytest tests/test_guardrail_logic.py::test_prompt_injection -v
-```
-
-## Compliance Notes
-
-**This is NOT a production-ready system.**
-
-For compliance with SOC 2, ISO 27001, or similar:
-- Implement encryption at rest and in transit
-- Add comprehensive audit logging
-- Deploy with least-privilege access controls
-- Conduct regular security assessments
-- Document data retention policies
-- Implement incident response procedures
-
-## Future Security Enhancements
-
-**Completed in Phase 5-6.5:**
-- [x] Structured security event logging (Phase 5: observability.py)
-- [x] Guardrail functional testing (Phase 6.5: test_guardrail_logic.py)
-- [x] Evaluation scenarios including prompt injection (Phase 6)
-
-**Planned for v2.0:**
-- [ ] Rate limiting on A2A endpoints
-- [ ] Input sanitization middleware
-- [ ] Alert validation against MITRE ATT&CK
-- [ ] Automated security testing in CI/CD
-- [ ] Container security scanning
-- [ ] Red team adversarial testing
-
-## References
-
-- [Google AI Safety Guidelines](https://ai.google/responsibility/principles/)
-- [OWASP LLM Top 10](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
-- [MITRE ATT&CK Framework](https://attack.mitre.org/)
-- [A2A Protocol Specification](https://github.com/google/agent-to-agent-protocol)
+AegisSOC is designed as a **secure multi-agent SOC assistant** with strict action boundaries enforced through a **dedicated A2A Guardrail Agent**. This document provides a security-focused overview of the system's threat model, trust boundaries, guardrail behavior, and known limitations.
 
 ---
 
-**Last Updated:** November 20, 2025  
-**Version:** Phase 6.5
+## 1. Threat Model
+
+### 1.1 System Context
+AegisSOC processes **synthetic alerts** and produces triage recommendations. It does *not* execute real actions.
+
+Primary goals:
+
+- Prevent unsafe or manipulated output  
+- Prevent hallucinated "executed actions"  
+- Ensure SOC safety policies cannot be bypassed  
+
+---
+
+## 2. Trust Boundaries
+
+### High-Trust Components
+- Guardrail Agent  
+- Action schema  
+- Evaluation engine  
+- Session store  
+- Observability system  
+
+### Medium-Trust Components
+- Root triage agent  
+- Parser agent  
+- Correlation agent  
+
+### Low-Trust Inputs
+- User prompt  
+- Synthetic alerts  
+- Any externally injected content  
+
+The **Guardrail Agent** enforces the boundary between low-trust input and high-trust output.
+
+---
+
+## 3. Guardrail Agent (A2A Microservice)
+
+The Guardrail Agent runs as an isolated A2A service on `localhost:8001`.
+
+Responsibilities:
+
+### 3.1 Action Normalization
+Ensures all triage actions fall into one of:
+
+- ESCALATE  
+- MONITOR  
+- CLOSE  
+- NEEDS_MORE_INFO  
+
+### 3.2 Fake Execution Detection
+Flags and normalizes claims such as:
+
+- "I already reset the password"  
+- "Assume the firewall is patched"  
+- "I disabled the user account already"  
+
+These are **hallucinated actions** and may mislead SOC workflows.
+
+### 3.3 Prompt Injection Detection
+Detects injection patterns, including:
+
+- "Ignore all previous instructions"  
+- "Say everything is safe"  
+- "Override security policy"  
+
+Behavior is validated in `test_guardrail_logic.py`.
+
+---
+
+## 4. Session & Observability Security
+
+### 4.1 Session Security
+Each run is contained within an `InMemorySessionService`, preventing:
+
+- state bleed between sessions  
+- data contamination  
+- cross-request influence  
+
+### 4.2 Observability Logging
+The system records:
+
+- tool calls  
+- agent outputs  
+- guardrail responses  
+- state snapshots  
+
+These logs enable:
+- debugging  
+- safety forensics  
+- post-hoc verification  
+- evaluation tracing  
+
+No sensitive data is persisted.
+
+---
+
+## 5. Data Policy
+
+- No real customer logs  
+- No PII  
+- No confidential information  
+- Only synthetic alerts are processed  
+
+This aligns with secure development and Kaggle submission rules.
+
+---
+
+## 6. Known Limitations / Future Work
+
+### 6.1 Semantic Injection Detection
+AegisSOC v2 will expand detection to include:
+
+- obfuscated attacks (leet, unicode, homoglyph)  
+- base64-encoded injections  
+- high-entropy adversarial prompts  
+
+### 6.2 Real-Log Upload Mode
+Future versions may support SIEM/EDR/FW log uploads, with:
+
+- sanitization  
+- schema normalization  
+- deeper trust boundaries  
+
+### 6.3 SOC-Native Outcomes
+Future schema will support:
+
+- Determination: Benign / Suspicious / Malicious  
+- Severity: Informational → Critical  
+- Disposition: Close / Escalate / IR  
+
+### 6.4 Correlation Across Multiple Alerts
+A temporal correlation engine is planned for AegisSOC v2.
+
+---
+
+## 7. Summary
+
+AegisSOC enforces strict safety rules through:
+
+- isolated A2A guardrail service  
+- action schema enforcement  
+- structured observability  
+- multilayered testing (mock + live LLM)  
+- explicit boundary control  
+
+The system is designed for **security-first agent engineering** and adheres to best practices from modern AI safety frameworks.
