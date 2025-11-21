@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/MultiAgentSOC_Logo.png" alt="AegisSOC Logo" width="400"/>
+  <img src="docs/Logo.png" alt="AegisSOC Logo" width="400"/>
 </div>
 
 # AegisSOC — Secure Multi-Agent SOC Assistant
@@ -107,7 +107,7 @@ aegis-soc/
 │   └── __init__.py
 ├── docs/
 │   ├── architecture.png        # Architecture diagram (SOC HUD style)
-│   └── MultiAgentSOC_Logo.png  # AegisSOC logo
+│   └── Logo.png                # AegisSOC logo
 ├── run_tests.py                # Helper to run pytest with captured output
 ├── demo_script.md              # 3-minute demo video script
 ├── docs/Kaggle_Writeup.md      # Kaggle submission writeup
